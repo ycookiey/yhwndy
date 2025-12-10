@@ -21,6 +21,7 @@ public enum DragMode
 
 /// <summary>
 /// Ctrl+ドラッグによるウィンドウ移動/リサイズを管理
+/// OS標準のWM_SYSCOMMANDを使用して信頼性を向上
 /// </summary>
 public class MouseHook : IDisposable
 {
@@ -32,16 +33,17 @@ public class MouseHook : IDisposable
     /// <summary>端の判定距離(px)</summary>
     private const int EDGE_SIZE = 16;
     
-    // ドラッグ状態
-    private bool _isDragging;
-    private DragMode _dragMode = DragMode.None;
-    private IntPtr _dragWindow = IntPtr.Zero;
-    private NativeMethods.POINT _dragStart;
-    private NativeMethods.RECT _originalRect;
-    private double _aspectRatio;
-    
-    // 元のカーソル
-    private IntPtr _originalCursor = IntPtr.Zero;
+    // SC_SIZE の方向定数
+    private const int SC_MOVE = 0xF010;
+    private const int SC_SIZE = 0xF000;
+    private const int WMSZ_LEFT = 1;
+    private const int WMSZ_RIGHT = 2;
+    private const int WMSZ_TOP = 3;
+    private const int WMSZ_TOPLEFT = 4;
+    private const int WMSZ_TOPRIGHT = 5;
+    private const int WMSZ_BOTTOM = 6;
+    private const int WMSZ_BOTTOMLEFT = 7;
+    private const int WMSZ_BOTTOMRIGHT = 8;
     
     public MouseHook(WindowManager windowManager)
     {
@@ -71,47 +73,26 @@ public class MouseHook : IDisposable
     
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= 0)
+        if (nCode >= 0 && wParam.ToInt32() == NativeMethods.WM_LBUTTONDOWN)
         {
-            int msg = wParam.ToInt32();
-            var hookStruct = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
-            
-            switch (msg)
+            // Ctrlキーが押されているか確認
+            if ((NativeMethods.GetAsyncKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0)
             {
-                case NativeMethods.WM_LBUTTONDOWN:
-                    if (OnMouseDown(hookStruct.pt))
-                        return new IntPtr(1); // 入力を消費
-                    break;
-                    
-                case NativeMethods.WM_MOUSEMOVE:
-                    if (_isDragging)
-                    {
-                        OnMouseMove(hookStruct.pt);
-                        return new IntPtr(1);
-                    }
-                    break;
-                    
-                case NativeMethods.WM_LBUTTONUP:
-                    if (_isDragging)
-                    {
-                        OnMouseUp();
-                        return new IntPtr(1);
-                    }
-                    break;
+                var hookStruct = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
+                if (StartDrag(hookStruct.pt))
+                {
+                    return new IntPtr(1); // 入力を消費
+                }
             }
         }
         
         return NativeMethods.CallNextHookEx(_hookId, nCode, wParam, lParam);
     }
     
-    private bool OnMouseDown(NativeMethods.POINT pt)
+    private bool StartDrag(NativeMethods.POINT pt)
     {
-        // Ctrlキーが押されているか確認
-        if ((NativeMethods.GetAsyncKeyState(NativeMethods.VK_CONTROL) & 0x8000) == 0)
-            return false;
-        
-        // アクティブウィンドウを取得
-        IntPtr hwnd = NativeMethods.GetForegroundWindow();
+        // マウス位置のウィンドウを取得
+        IntPtr hwnd = NativeMethods.WindowFromPoint(pt);
         if (hwnd == IntPtr.Zero) return false;
         
         // トップレベルウィンドウを取得
@@ -126,143 +107,37 @@ public class MouseHook : IDisposable
         // ウィンドウ矩形を取得
         if (!NativeMethods.GetWindowRect(hwnd, out var rect)) return false;
         
-        // マウス位置がウィンドウ内か確認
-        if (pt.X < rect.Left || pt.X > rect.Right || pt.Y < rect.Top || pt.Y > rect.Bottom)
-            return false;
-        
         // ドラッグモードを決定
-        _dragMode = GetDragMode(pt, rect);
-        if (_dragMode == DragMode.None) return false;
+        DragMode mode = GetDragMode(pt, rect);
+        if (mode == DragMode.None) return false;
         
-        // ドラッグ開始
-        _isDragging = true;
-        _dragWindow = hwnd;
-        _dragStart = pt;
-        _originalRect = rect;
-        _aspectRatio = rect.Width / (double)rect.Height;
+        // OS標準のドラッグを開始
+        NativeMethods.ReleaseCapture();
         
-        // カーソルを変更
-        SetDragCursor(_dragMode);
-        
-        return true;
-    }
-    
-    private void OnMouseMove(NativeMethods.POINT pt)
-    {
-        if (!_isDragging || _dragWindow == IntPtr.Zero) return;
-        
-        int dx = pt.X - _dragStart.X;
-        int dy = pt.Y - _dragStart.Y;
-        
-        int newLeft = _originalRect.Left;
-        int newTop = _originalRect.Top;
-        int newWidth = _originalRect.Width;
-        int newHeight = _originalRect.Height;
-        
-        switch (_dragMode)
+        if (mode == DragMode.Move)
         {
-            case DragMode.Move:
-                newLeft += dx;
-                newTop += dy;
-                break;
-                
-            case DragMode.ResizeE:
-                newWidth += dx;
-                break;
-                
-            case DragMode.ResizeW:
-                newLeft += dx;
-                newWidth -= dx;
-                break;
-                
-            case DragMode.ResizeS:
-                newHeight += dy;
-                break;
-                
-            case DragMode.ResizeN:
-                newTop += dy;
-                newHeight -= dy;
-                break;
-                
-            case DragMode.ResizeSE:
-                // アスペクト比維持
-                if (Math.Abs(dx) > Math.Abs(dy))
-                {
-                    newWidth += dx;
-                    newHeight = (int)(newWidth / _aspectRatio);
-                }
-                else
-                {
-                    newHeight += dy;
-                    newWidth = (int)(newHeight * _aspectRatio);
-                }
-                break;
-                
-            case DragMode.ResizeSW:
-                if (Math.Abs(dx) > Math.Abs(dy))
-                {
-                    newWidth -= dx;
-                    newHeight = (int)(newWidth / _aspectRatio);
-                    newLeft = _originalRect.Right - newWidth;
-                }
-                else
-                {
-                    newHeight += dy;
-                    newWidth = (int)(newHeight * _aspectRatio);
-                    newLeft = _originalRect.Right - newWidth;
-                }
-                break;
-                
-            case DragMode.ResizeNE:
-                if (Math.Abs(dx) > Math.Abs(dy))
-                {
-                    newWidth += dx;
-                    newHeight = (int)(newWidth / _aspectRatio);
-                    newTop = _originalRect.Bottom - newHeight;
-                }
-                else
-                {
-                    newHeight -= dy;
-                    newWidth = (int)(newHeight * _aspectRatio);
-                    newTop = _originalRect.Bottom - newHeight;
-                }
-                break;
-                
-            case DragMode.ResizeNW:
-                if (Math.Abs(dx) > Math.Abs(dy))
-                {
-                    newWidth -= dx;
-                    newHeight = (int)(newWidth / _aspectRatio);
-                    newLeft = _originalRect.Right - newWidth;
-                    newTop = _originalRect.Bottom - newHeight;
-                }
-                else
-                {
-                    newHeight -= dy;
-                    newWidth = (int)(newHeight * _aspectRatio);
-                    newLeft = _originalRect.Right - newWidth;
-                    newTop = _originalRect.Bottom - newHeight;
-                }
-                break;
+            // 移動: SC_MOVE を送信
+            NativeMethods.SendMessageW(hwnd, NativeMethods.WM_SYSCOMMAND, (IntPtr)SC_MOVE, IntPtr.Zero);
+        }
+        else
+        {
+            // リサイズ: SC_SIZE + 方向 を送信
+            int direction = mode switch
+            {
+                DragMode.ResizeN => WMSZ_TOP,
+                DragMode.ResizeS => WMSZ_BOTTOM,
+                DragMode.ResizeE => WMSZ_RIGHT,
+                DragMode.ResizeW => WMSZ_LEFT,
+                DragMode.ResizeNW => WMSZ_TOPLEFT,
+                DragMode.ResizeNE => WMSZ_TOPRIGHT,
+                DragMode.ResizeSW => WMSZ_BOTTOMLEFT,
+                DragMode.ResizeSE => WMSZ_BOTTOMRIGHT,
+                _ => 0
+            };
+            NativeMethods.SendMessageW(hwnd, NativeMethods.WM_SYSCOMMAND, (IntPtr)(SC_SIZE + direction), IntPtr.Zero);
         }
         
-        // 最小サイズ制限
-        if (newWidth < 50) newWidth = 50;
-        if (newHeight < 50) newHeight = 50;
-        
-        NativeMethods.SetWindowPos(_dragWindow, IntPtr.Zero,
-            newLeft, newTop, newWidth, newHeight,
-            NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
-    }
-    
-    private void OnMouseUp()
-    {
-        _isDragging = false;
-        _dragWindow = IntPtr.Zero;
-        _dragMode = DragMode.None;
-        
-        // カーソルを復元
-        RestoreCursor();
+        return true;
     }
     
     /// <summary>マウス位置からドラッグモードを決定</summary>
@@ -273,13 +148,13 @@ public class MouseHook : IDisposable
         bool nearTop = pt.Y < rect.Top + EDGE_SIZE;
         bool nearBottom = pt.Y > rect.Bottom - EDGE_SIZE;
         
-        // 角（アスペクト比維持）
+        // 角
         if (nearLeft && nearTop) return DragMode.ResizeNW;
         if (nearRight && nearTop) return DragMode.ResizeNE;
         if (nearLeft && nearBottom) return DragMode.ResizeSW;
         if (nearRight && nearBottom) return DragMode.ResizeSE;
         
-        // 辺（アスペクト比非維持）
+        // 辺
         if (nearLeft) return DragMode.ResizeW;
         if (nearRight) return DragMode.ResizeE;
         if (nearTop) return DragMode.ResizeN;
@@ -287,28 +162,6 @@ public class MouseHook : IDisposable
         
         // 中央（移動）
         return DragMode.Move;
-    }
-    
-    private void SetDragCursor(DragMode mode)
-    {
-        IntPtr cursorId = mode switch
-        {
-            DragMode.Move => (IntPtr)NativeMethods.IDC_SIZEALL,
-            DragMode.ResizeN or DragMode.ResizeS => (IntPtr)NativeMethods.IDC_SIZENS,
-            DragMode.ResizeE or DragMode.ResizeW => (IntPtr)NativeMethods.IDC_SIZEWE,
-            DragMode.ResizeNW or DragMode.ResizeSE => (IntPtr)NativeMethods.IDC_SIZENWSE,
-            DragMode.ResizeNE or DragMode.ResizeSW => (IntPtr)NativeMethods.IDC_SIZENESW,
-            _ => (IntPtr)NativeMethods.IDC_ARROW
-        };
-        
-        IntPtr cursor = NativeMethods.LoadCursorW(IntPtr.Zero, cursorId);
-        _originalCursor = NativeMethods.SetCursor(cursor);
-    }
-    
-    private void RestoreCursor()
-    {
-        IntPtr arrow = NativeMethods.LoadCursorW(IntPtr.Zero, (IntPtr)NativeMethods.IDC_ARROW);
-        NativeMethods.SetCursor(arrow);
     }
     
     public void Dispose()

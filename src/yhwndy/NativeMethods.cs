@@ -169,6 +169,9 @@ public static partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     public static partial IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
     
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr WindowFromPoint(POINT Point);
+    
     public const uint GA_ROOTOWNER = 3;
     
     #endregion
@@ -236,6 +239,19 @@ public static partial class NativeMethods
     
     [LibraryImport("user32.dll", SetLastError = true)]
     public static partial uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    
+    #endregion
+    
+    #region Message Functions
+    
+    public const int WM_SYSCOMMAND = 0x0112;
+    
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    public static partial IntPtr SendMessageW(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+    
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ReleaseCapture();
     
     #endregion
 }
