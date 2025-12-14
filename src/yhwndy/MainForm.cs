@@ -176,4 +176,15 @@ public class MainForm : Form
         }
         base.SetVisibleCore(value);
     }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            CreateParams cp = base.CreateParams;
+            // Alt+Tabのリストから除外
+            cp.ExStyle |= (int)NativeMethods.WS_EX_TOOLWINDOW;
+            return cp;
+        }
+    }
 }
