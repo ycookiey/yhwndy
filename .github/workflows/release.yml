@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Build Release
+      run: |
+        cd src/yhwndy
+        dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:DebugType=None /p:DebugSymbols=false
+
+    - name: Prepare artifact
+      run: |
+        mkdir release
+        copy src\yhwndy\bin\Release\net8.0-windows\win-x64\publish\yhwndy.exe release\yhwndy.exe
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: release/yhwndy.exe
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
