@@ -100,7 +100,11 @@ public class MouseHook : IDisposable
         
         // 除外ウィンドウか確認
         if (_windowManager.IsExcluded(hwnd)) return false;
-        
+
+        // ゴーストモードのウィンドウのみ処理
+        var info = _windowManager.GetInfo(hwnd);
+        if (info == null || !info.IsGhostMode) return false;
+
         // 最大化ウィンドウは無視
         if (NativeMethods.IsZoomed(hwnd)) return false;
         
