@@ -22,6 +22,7 @@ bld/
 *.suo
 *.user
 *.userosscache
+*.sln
 *.sln.docstates
 
 # Build outputs
