@@ -18,7 +18,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     
     <AssemblyName>yhwndy</AssemblyName>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     
     <!-- Icon of the exe in Explorer and shortcuts -->
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
