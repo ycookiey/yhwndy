@@ -26,7 +26,7 @@ Or download `yhwndy.exe` from [Releases](https://github.com/ycookiey/yhwndy/rele
 
 ## Usage
 
-Start `yhwndy.exe`. The generic Windows application icon appears in the tray. The hotkeys act on the active window:
+Start `yhwndy.exe`. The yhwndy icon appears in the tray. Its lines are white when the default Windows mode is dark and black when it is light. The mode is set in Settings > Personalization > Colors under "Choose your mode"; with "Custom", "Choose your default Windows mode" sets it. The hotkeys act on the active window:
 
 | Hotkey | Action |
 |---|---|

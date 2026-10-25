@@ -19,6 +19,15 @@
     
     <AssemblyName>yhwndy</AssemblyName>
     <Version>1.1.0</Version>
+    
+    <!-- Icon of the exe in Explorer and shortcuts -->
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- Tray icons for a dark and a light taskbar, embedded because a single-file exe has no loose files next to it -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\tray-dark.ico" LogicalName="tray-dark.ico" />
+    <EmbeddedResource Include="Resources\tray-light.ico" LogicalName="tray-light.ico" />
+  </ItemGroup>
 
 </Project>

@@ -1,3 +1,5 @@
+using Microsoft.Win32;
+
 namespace yhwndy;
 
 /// <summary>
@@ -15,6 +17,11 @@ public class MainForm : Form
     private ToolStripMenuItem? _startupMenuItem;
     private ToolStripMenuItem? _statusMenuItem;
     
+    private const string PersonalizeKey = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+    
+    private Icon _trayIconImage;
+    private bool _trayIconIsLight;
+    
     public MainForm()
     {
         // The form is never shown; it only receives the hotkey messages.
@@ -30,13 +37,18 @@ public class MainForm : Form
         
         _contextMenu = CreateContextMenu();
         
+        _trayIconIsLight = IsTaskbarLight();
+        _trayIconImage = LoadTrayIcon(_trayIconIsLight);
+        
         _trayIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application, // TODO: replace the placeholder with an app icon
+            Icon = _trayIconImage,
             Text = "yhwndy - ウィンドウ制御ツール",
             Visible = true,
             ContextMenuStrip = _contextMenu
         };
+        
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         
         _hotkeyManager.RegisterAll();
         if (_hotkeyManager.HasFailedRegistration)
@@ -109,6 +121,48 @@ public class MainForm : Form
         _trayIcon.ShowBalloonTip(3000, "yhwndy", message, ToolTipIcon.Info);
     }
     
+    /// <summary>
+    /// Whether the taskbar uses the light theme. A missing or unreadable value means dark.
+    /// </summary>
+    private static bool IsTaskbarLight()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(PersonalizeKey, false);
+            return key?.GetValue("SystemUsesLightTheme") is int value && value == 1;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+    
+    /// <summary>
+    /// Loads the tray icon for the taskbar theme (black lines on light, white lines on dark) at the small icon size.
+    /// </summary>
+    private static Icon LoadTrayIcon(bool light)
+    {
+        string name = light ? "tray-light.ico" : "tray-dark.ico";
+        using var stream = typeof(MainForm).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"Embedded resource {name} not found");
+        return new Icon(stream, SystemInformation.SmallIconSize);
+    }
+    
+    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        // A theme change arrives as WM_SETTINGCHANGE "ImmersiveColorSet", which SystemEvents reports as General.
+        if (e.Category != UserPreferenceCategory.General) return;
+        
+        bool light = IsTaskbarLight();
+        if (light == _trayIconIsLight) return;
+        
+        var oldIcon = _trayIconImage;
+        _trayIconImage = LoadTrayIcon(light);
+        _trayIconIsLight = light;
+        _trayIcon.Icon = _trayIconImage;
+        oldIcon.Dispose();
+    }
+    
     protected override void WndProc(ref Message m)
     {
         if (m.Msg == NativeMethods.WM_HOTKEY)
@@ -145,11 +199,13 @@ public class MainForm : Form
     {
         _windowManager.ResetAll();
         
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _mouseHook.Dispose();
         _ghostModeManager.Dispose();
         _hotkeyManager.Dispose();
         _trayIcon.Visible = false;
         _trayIcon.Dispose();
+        _trayIconImage.Dispose();
         
         base.OnFormClosing(e);
     }
