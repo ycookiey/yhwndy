@@ -25,8 +25,8 @@ public class MainForm : Form
         
         _windowManager = new WindowManager(Handle);
         _hotkeyManager = new HotkeyManager(Handle);
-        _ghostModeManager = new GhostModeManager(_windowManager);
         _mouseHook = new MouseHook(_windowManager);
+        _ghostModeManager = new GhostModeManager(_windowManager, _mouseHook);
         
         _contextMenu = CreateContextMenu();
         
@@ -43,8 +43,6 @@ public class MainForm : Form
         {
             ShowNotification("一部ホットキーが登録できませんでした");
         }
-        
-        _mouseHook.Start();
     }
     
     private ContextMenuStrip CreateContextMenu()
@@ -69,6 +67,7 @@ public class MainForm : Form
         resetItem.Click += (_, _) =>
         {
             _windowManager.ResetAll();
+            _ghostModeManager.Refresh();
             ShowNotification("全ウィンドウをリセットしました");
         };
         menu.Items.Add(resetItem);
@@ -134,6 +133,7 @@ public class MainForm : Form
                     
                 case HotkeyManager.HOTKEY_GHOST_MODE:
                     _windowManager.ToggleGhostMode(hwnd);
+                    _ghostModeManager.Refresh();
                     break;
             }
         }
