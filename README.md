@@ -26,7 +26,7 @@ Or download `yhwndy.exe` from [Releases](https://github.com/ycookiey/yhwndy/rele
 
 ## Usage
 
-Start `yhwndy.exe`. The generic Windows application icon appears in the tray. The hotkeys act on the active window:
+Start `yhwndy.exe`. The yhwndy icon appears in the tray. The color of its lines follows the taskbar mode: white in dark mode, black in light mode. The hotkeys act on the active window:
 
 | Hotkey | Action |
 |---|---|
