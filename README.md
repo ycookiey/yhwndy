@@ -1,6 +1,6 @@
 # yhwndy
 
-[日本語](README.ja.md)
+[日本語版 README](README.ja.md)
 
 A Windows tray tool that changes the windows of other apps with hotkeys: make a window semi-transparent or remove its title bar and border. In Ghost Mode, a window fades out as the mouse cursor comes near it.
 

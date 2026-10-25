@@ -1,6 +1,6 @@
 # yhwndy
 
-[English](README.md)
+[English README](README.md)
 
 ホットキーで、ほかのアプリのウィンドウを半透明にしたり、タイトルバーと枠を消したりするWindowsの常駐ツール。Ghost Modeにしたウィンドウは、マウスカーソルが近づくと不透明度が下がる。
 
