@@ -2,10 +2,14 @@ namespace yhwndy;
 
 /// <summary>
 /// Fades the windows in Ghost Mode by their distance from the mouse cursor.
+/// The timer runs only while a window is in Ghost Mode, and the mouse hook for
+/// Ctrl+drag is set only while Ctrl is held: a low-level hook makes every mouse
+/// input in every app wait for this process.
 /// </summary>
 public class GhostModeManager : IDisposable
 {
     private readonly WindowManager _windowManager;
+    private readonly MouseHook _mouseHook;
     private readonly System.Windows.Forms.Timer _timer;
     private bool _disposed;
     
@@ -15,29 +19,65 @@ public class GhostModeManager : IDisposable
     /// <summary>Distance in px from which the window is at its set opacity.</summary>
     private const double DISTANCE_NORMAL = 150;
     
-    public GhostModeManager(WindowManager windowManager)
+    public GhostModeManager(WindowManager windowManager, MouseHook mouseHook)
     {
         _windowManager = windowManager;
-        
+        _mouseHook = mouseHook;
+
         _timer = new System.Windows.Forms.Timer
         {
             Interval = 100
         };
         _timer.Tick += OnTimerTick;
-        _timer.Start();
     }
-    
+
+    /// <summary>
+    /// Starts the timer if a window is in Ghost Mode, or stops the timer and the
+    /// mouse hook if none is. Call after Ghost Mode is turned on or off.
+    /// </summary>
+    public void Refresh()
+    {
+        if (GhostWindows().Any())
+        {
+            _timer.Start();
+        }
+        else
+        {
+            _timer.Stop();
+            _mouseHook.Stop();
+        }
+    }
+
+    private IEnumerable<WindowInfo> GhostWindows() =>
+        _windowManager.ModifiedWindows.Where(w => w.IsGhostMode);
+
     private void OnTimerTick(object? sender, EventArgs e)
     {
-        bool ctrlPressed = (NativeMethods.GetAsyncKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0;
-        
-        if (!NativeMethods.GetCursorPos(out var mousePos)) return;
-        
-        foreach (var info in _windowManager.ModifiedWindows)
+        var ghosts = GhostWindows().ToList();
+        if (ghosts.Count == 0)
         {
-            if (!info.IsGhostMode) continue;
-            if (!NativeMethods.IsWindow(info.Handle)) continue;
-            
+            // The last window in Ghost Mode was closed.
+            Refresh();
+            return;
+        }
+
+        bool ctrlPressed = (NativeMethods.GetAsyncKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0;
+
+        // Ctrl+drag starts with a click while Ctrl is held, so the hook is needed
+        // only then. A click within one tick of pressing Ctrl may not start a drag.
+        if (ctrlPressed)
+        {
+            _mouseHook.Start();
+        }
+        else
+        {
+            _mouseHook.Stop();
+        }
+
+        if (!NativeMethods.GetCursorPos(out var mousePos)) return;
+
+        foreach (var info in ghosts)
+        {
             // Holding Ctrl shows the window at its set opacity, so it can be seen and Ctrl+dragged.
             if (ctrlPressed)
             {

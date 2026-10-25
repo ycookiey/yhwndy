@@ -47,8 +47,11 @@ public class MouseHook : IDisposable
         _windowManager = windowManager;
     }
     
+    public bool IsActive => _hookId != IntPtr.Zero;
+
     public void Start()
     {
+        if (IsActive) return;
         _proc = HookCallback;
         _hookId = NativeMethods.SetWindowsHookExW(
             NativeMethods.WH_MOUSE_LL,

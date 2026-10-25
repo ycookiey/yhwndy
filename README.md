@@ -48,6 +48,7 @@ Right-click the tray icon to open the menu. The menu is in Japanese:
 
 - A window in Ghost Mode still receives clicks while it is faded
 - In a window in Ghost Mode that isn't maximized, Ctrl+click is used for moving and resizing and doesn't reach the app
+- A click within about 0.1 seconds of pressing Ctrl may not start the drag
 - To change the windows of an app running as administrator, yhwndy must also run as administrator
 - If yhwndy is ended forcibly, for example from Task Manager, the changed windows stay changed until they are closed. Restarting yhwndy doesn't restore them
 
