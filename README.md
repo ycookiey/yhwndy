@@ -1,65 +1,73 @@
 # yhwndy
 
-Windows向けウィンドウ制御ツール。透明化・ボーダーレス・Ghost Modeで視認性と操作性を向上。
+[日本語](README.ja.md)
 
-## 主な機能
+A Windows tray tool that changes the windows of other apps with hotkeys: make a window semi-transparent or remove its title bar and border. In Ghost Mode, a window fades out as the mouse cursor comes near it.
 
-### 1. 透明化 (Transparency)
+## Features
 
-- ホットキーで透明度を調整（5%刻み）
-- 透明度はウィンドウごとに管理
+- Transparency: change the opacity of the active window in 5% steps, from 5% to 100%
+- Borderless: hide the title bar and border of the active window. A maximized window is stretched over the whole monitor, covering the taskbar
+- Ghost Mode: the window fades as the mouse cursor comes near it. Over the window or within 50 px of its edge, the opacity is about 5%. From 50 px to 150 px away, it rises back to the opacity set with `Ctrl+Alt+↑/↓`. Hold Ctrl to show the window at that set opacity
+- Ctrl+drag a window in Ghost Mode to move it, or start the drag within 16 px of an edge to resize it. Maximized windows can't be dragged
 
-### 2. ボーダーレス化 (Borderless)
+Changes are applied per window and aren't saved. Quitting yhwndy restores every changed window.
 
-- タイトルバーと枠線を非表示
-- 最大化時は画面全体に拡張（タスクバーが隠れる場合あり）
-- タスクバー/Alt+Tabの表示は維持
+## Install
 
-### 3. Ghost Mode（距離に応じた透明度の自動制御）
+Runs on 64-bit (x64) Windows. Install with [Scoop](https://scoop.sh/):
 
-- マウスとの距離で透明度を自動調整（ウィンドウごとにON/OFF）
-- Ctrl押下中は設定透明度で固定
-- 操作: `Ctrl+ドラッグ`（中央付近: 移動 / 端（16px以内）: リサイズ）
+```powershell
+scoop bucket add yscoopy https://github.com/ycookiey/yscoopy
+scoop install yscoopy/yhwndy
+```
 
-## システム要件
+Or download `yhwndy.exe` from [Releases](https://github.com/ycookiey/yhwndy/releases) and run it. The .NET runtime is bundled in the exe, so you don't need to install .NET.
 
-- Windows 10/11
-- .NET 8 Runtime（自己完結型ビルドの場合は不要）
+## Usage
 
-## ホットキー
+Start `yhwndy.exe`. The generic Windows application icon appears in the tray. The hotkeys act on the active window:
 
-| 機能 | ホットキー |
-|------|-----------|
-| 透明度を上げる | `Ctrl+Alt+↑` |
-| 透明度を下げる | `Ctrl+Alt+↓` |
-| ボーダーレス切替 | `Ctrl+Alt+B` |
-| Ghost Mode切替 | `Ctrl+Alt+G` |
-| 移動/リサイズ | `Ctrl+ドラッグ` |
+| Hotkey | Action |
+|---|---|
+| `Ctrl+Alt+↑` | Raise the opacity by 5% |
+| `Ctrl+Alt+↓` | Lower the opacity by 5% |
+| `Ctrl+Alt+B` | Turn borderless on or off |
+| `Ctrl+Alt+G` | Turn Ghost Mode on or off |
 
-## タスクトレイメニュー
+The hotkeys can't be changed. If another app has already registered one of them, yhwndy shows the notification `一部ホットキーが登録できませんでした` at startup, and that hotkey doesn't work.
 
-- **状態表示**: 設定適用中のウィンドウ一覧を表示
-- **スタートアップ登録**: Windows起動時に自動起動
-- **緊急リセット**: すべてのウィンドウ設定をリセット
-- **終了**: 終了して適用したスタイルを復元
+Right-click the tray icon to open the menu. The menu is in Japanese:
 
-## インストール
+- `変更中のウィンドウ`: the number of windows yhwndy has changed
+- `スタートアップ登録`: when checked, yhwndy starts when you sign in
+- `緊急リセット`: restore every changed window
+- `終了`: restore every changed window and quit
 
-1. [Releases](https://github.com/ycookiey/yhwndy/releases)から最新版をダウンロード
-2. `yhwndy.exe`を任意のフォルダーに配置
-3. 実行して使用開始
+## Known limitations
 
-**注意**: 管理者権限アプリ操作時は、本ツールも管理者で実行。
+- A window in Ghost Mode still receives clicks while it is faded
+- In a window in Ghost Mode that isn't maximized, Ctrl+click is used for moving and resizing and doesn't reach the app
+- To change the windows of an app running as administrator, yhwndy must also run as administrator
+- If yhwndy is ended forcibly, for example from Task Manager, the changed windows stay changed until they are closed. Restarting yhwndy doesn't restore them
 
-## ビルド方法
+## Uninstall
 
-```bash
+1. Uncheck `スタートアップ登録` in the tray menu. Otherwise the `yhwndy` value is left in the registry key `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+2. Quit with `終了` in the tray menu
+3. If you installed with Scoop, run `scoop uninstall yhwndy`. If you downloaded it from Releases, delete `yhwndy.exe`
+
+## Build
+
+Requires the .NET 8 SDK.
+
+```powershell
 cd src/yhwndy
-dotnet build
+dotnet publish -c Release
 ```
 
-### リリースビルド
+The output is `src/yhwndy/bin/Release/net8.0-windows/win-x64/publish/yhwndy.exe`.
 
-```bash
-dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
-```
+## License
+
+[MIT License](LICENSE)
