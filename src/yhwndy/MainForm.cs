@@ -1,7 +1,7 @@
 namespace yhwndy;
 
 /// <summary>
-/// タスクトレイ常駐フォーム
+/// Hidden form that owns the tray icon, the hotkeys and the mouse hook.
 /// </summary>
 public class MainForm : Form
 {
@@ -17,38 +17,33 @@ public class MainForm : Form
     
     public MainForm()
     {
-        // フォームを非表示に
+        // The form is never shown; it only receives the hotkey messages.
         ShowInTaskbar = false;
         WindowState = FormWindowState.Minimized;
         FormBorderStyle = FormBorderStyle.None;
         Opacity = 0;
         
-        // マネージャー初期化
         _windowManager = new WindowManager(Handle);
         _hotkeyManager = new HotkeyManager(Handle);
         _ghostModeManager = new GhostModeManager(_windowManager);
         _mouseHook = new MouseHook(_windowManager);
         
-        // コンテキストメニュー作成
         _contextMenu = CreateContextMenu();
         
-        // タスクトレイアイコン
         _trayIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application, // 仮アイコン
+            Icon = SystemIcons.Application, // TODO: replace the placeholder with an app icon
             Text = "yhwndy - ウィンドウ制御ツール",
             Visible = true,
             ContextMenuStrip = _contextMenu
         };
         
-        // ホットキー登録
         _hotkeyManager.RegisterAll();
         if (_hotkeyManager.HasFailedRegistration)
         {
             ShowNotification("一部ホットキーが登録できませんでした");
         }
         
-        // マウスフック開始
         _mouseHook.Start();
     }
     
@@ -56,12 +51,10 @@ public class MainForm : Form
     {
         var menu = new ContextMenuStrip();
         
-        // 状態表示（動的更新）
         _statusMenuItem = new ToolStripMenuItem("変更中のウィンドウ: なし") { Enabled = false };
         menu.Items.Add(_statusMenuItem);
         menu.Items.Add(new ToolStripSeparator());
         
-        // スタートアップ登録
         _startupMenuItem = new ToolStripMenuItem("スタートアップ登録")
         {
             Checked = StartupManager.IsRegistered,
@@ -72,7 +65,6 @@ public class MainForm : Form
         
         menu.Items.Add(new ToolStripSeparator());
         
-        // 緊急リセット
         var resetItem = new ToolStripMenuItem("緊急リセット");
         resetItem.Click += (_, _) =>
         {
@@ -83,12 +75,10 @@ public class MainForm : Form
         
         menu.Items.Add(new ToolStripSeparator());
         
-        // 終了
         var exitItem = new ToolStripMenuItem("終了");
         exitItem.Click += (_, _) => Application.Exit();
         menu.Items.Add(exitItem);
         
-        // メニュー表示時に状態を更新
         menu.Opening += (_, _) => UpdateStatusMenu();
         
         return menu;
@@ -108,7 +98,7 @@ public class MainForm : Form
             _statusMenuItem.Text = $"変更中のウィンドウ: {modified.Count}";
         }
         
-        // スタートアップ状態も更新
+        // The Run value can be changed outside yhwndy, so read it again.
         if (_startupMenuItem != null)
         {
             _startupMenuItem.Checked = StartupManager.IsRegistered;
@@ -131,11 +121,11 @@ public class MainForm : Form
             switch (id)
             {
                 case HotkeyManager.HOTKEY_OPACITY_UP:
-                    _windowManager.ChangeOpacity(hwnd, 5); // 5%不透明に
+                    _windowManager.ChangeOpacity(hwnd, 5);
                     break;
                     
                 case HotkeyManager.HOTKEY_OPACITY_DOWN:
-                    _windowManager.ChangeOpacity(hwnd, -5); // 5%透明に
+                    _windowManager.ChangeOpacity(hwnd, -5);
                     break;
                     
                 case HotkeyManager.HOTKEY_BORDERLESS:
@@ -153,10 +143,8 @@ public class MainForm : Form
     
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
-        // 全スタイル復元
         _windowManager.ResetAll();
         
-        // リソース解放
         _mouseHook.Dispose();
         _ghostModeManager.Dispose();
         _hotkeyManager.Dispose();
@@ -168,7 +156,7 @@ public class MainForm : Form
     
     protected override void SetVisibleCore(bool value)
     {
-        // 起動時に非表示
+        // Create the handle for the hotkeys without ever showing the form.
         if (!IsHandleCreated)
         {
             CreateHandle();
@@ -182,7 +170,7 @@ public class MainForm : Form
         get
         {
             CreateParams cp = base.CreateParams;
-            // Alt+Tabのリストから除外
+            // Keep the hidden form out of the Alt+Tab list.
             cp.ExStyle |= (int)NativeMethods.WS_EX_TOOLWINDOW;
             return cp;
         }

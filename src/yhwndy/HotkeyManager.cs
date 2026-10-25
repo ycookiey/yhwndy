@@ -1,7 +1,7 @@
 namespace yhwndy;
 
 /// <summary>
-/// ホットキーの登録・処理を管理するクラス
+/// Registers and unregisters the global hotkeys.
 /// </summary>
 public class HotkeyManager : IDisposable
 {
@@ -9,13 +9,13 @@ public class HotkeyManager : IDisposable
     private readonly List<int> _registeredIds = [];
     private bool _disposed;
     
-    // ホットキーID
+    // IDs passed in WM_HOTKEY.
     public const int HOTKEY_OPACITY_UP = 1;
     public const int HOTKEY_OPACITY_DOWN = 2;
     public const int HOTKEY_BORDERLESS = 3;
     public const int HOTKEY_GHOST_MODE = 4;
     
-    /// <summary>登録に失敗したホットキーがあったか</summary>
+    /// <summary>True if any hotkey failed to register.</summary>
     public bool HasFailedRegistration { get; private set; }
     
     public HotkeyManager(IntPtr hwnd)
@@ -23,22 +23,17 @@ public class HotkeyManager : IDisposable
         _hwnd = hwnd;
     }
     
-    /// <summary>全ホットキーを登録</summary>
     public void RegisterAll()
     {
-        // Ctrl+Alt+↑: 透明度UP
         if (!Register(HOTKEY_OPACITY_UP, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_UP))
             HasFailedRegistration = true;
         
-        // Ctrl+Alt+↓: 透明度DOWN
         if (!Register(HOTKEY_OPACITY_DOWN, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_DOWN))
             HasFailedRegistration = true;
         
-        // Ctrl+Alt+B: ボーダーレストグル
         if (!Register(HOTKEY_BORDERLESS, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, (int)'B'))
             HasFailedRegistration = true;
         
-        // Ctrl+Alt+G: Ghost Mode トグル
         if (!Register(HOTKEY_GHOST_MODE, NativeMethods.MOD_CONTROL | NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, (int)'G'))
             HasFailedRegistration = true;
     }
@@ -53,7 +48,6 @@ public class HotkeyManager : IDisposable
         return success;
     }
     
-    /// <summary>全ホットキーを解除</summary>
     public void UnregisterAll()
     {
         foreach (var id in _registeredIds)

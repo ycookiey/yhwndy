@@ -8,16 +8,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     
-    <!-- Self-contained 単一ファイル配布 -->
+    <!-- One self-contained exe, so users don't need to install .NET -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     
-    <!-- DPI Aware -->
+    <!-- Per-monitor DPI awareness, so window positions and sizes are in physical pixels on every monitor -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     
-    <!-- アセンブリ情報 -->
     <AssemblyName>yhwndy</AssemblyName>
     <Version>1.0.0</Version>
   </PropertyGroup>

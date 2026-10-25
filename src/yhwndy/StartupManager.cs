@@ -3,14 +3,13 @@ using Microsoft.Win32;
 namespace yhwndy;
 
 /// <summary>
-/// スタートアップ登録を管理するクラス
+/// Starts yhwndy at sign-in through the HKCU Run key.
 /// </summary>
 public static class StartupManager
 {
     private const string RegistryKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
     private const string AppName = "yhwndy";
     
-    /// <summary>スタートアップに登録されているか</summary>
     public static bool IsRegistered
     {
         get
@@ -20,7 +19,6 @@ public static class StartupManager
         }
     }
     
-    /// <summary>スタートアップ登録をトグル</summary>
     public static void Toggle()
     {
         if (IsRegistered)
@@ -33,7 +31,6 @@ public static class StartupManager
         }
     }
     
-    /// <summary>スタートアップに登録</summary>
     public static void Register()
     {
         using var key = Registry.CurrentUser.OpenSubKey(RegistryKey, true);
@@ -44,7 +41,6 @@ public static class StartupManager
         }
     }
     
-    /// <summary>スタートアップから削除</summary>
     public static void Unregister()
     {
         using var key = Registry.CurrentUser.OpenSubKey(RegistryKey, true);

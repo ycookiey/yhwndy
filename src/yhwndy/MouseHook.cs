@@ -2,9 +2,6 @@ using System.Runtime.InteropServices;
 
 namespace yhwndy;
 
-/// <summary>
-/// ドラッグ操作の種類
-/// </summary>
 public enum DragMode
 {
     None,
@@ -20,8 +17,8 @@ public enum DragMode
 }
 
 /// <summary>
-/// Ctrl+ドラッグによるウィンドウ移動/リサイズを管理
-/// OS標準のWM_SYSCOMMANDを使用して信頼性を向上
+/// Ctrl+drag to move or resize a window in Ghost Mode.
+/// The drag is handed to the OS through WM_SYSCOMMAND, so the OS runs the move and resize loop.
 /// </summary>
 public class MouseHook : IDisposable
 {
@@ -30,10 +27,10 @@ public class MouseHook : IDisposable
     private NativeMethods.LowLevelMouseProc? _proc;
     private bool _disposed;
     
-    /// <summary>端の判定距離(px)</summary>
+    /// <summary>Width in px of the edge area where a drag resizes instead of moving.</summary>
     private const int EDGE_SIZE = 16;
     
-    // SC_SIZE の方向定数
+    // SC_SIZE plus a WMSZ_* value picks the edge to resize.
     private const int SC_MOVE = 0xF010;
     private const int SC_SIZE = 0xF000;
     private const int WMSZ_LEFT = 1;
@@ -50,7 +47,6 @@ public class MouseHook : IDisposable
         _windowManager = windowManager;
     }
     
-    /// <summary>マウスフックを開始</summary>
     public void Start()
     {
         _proc = HookCallback;
@@ -61,7 +57,6 @@ public class MouseHook : IDisposable
             0);
     }
     
-    /// <summary>マウスフックを停止</summary>
     public void Stop()
     {
         if (_hookId != IntPtr.Zero)
@@ -75,13 +70,12 @@ public class MouseHook : IDisposable
     {
         if (nCode >= 0 && wParam.ToInt32() == NativeMethods.WM_LBUTTONDOWN)
         {
-            // Ctrlキーが押されているか確認
             if ((NativeMethods.GetAsyncKeyState(NativeMethods.VK_CONTROL) & 0x8000) != 0)
             {
                 var hookStruct = Marshal.PtrToStructure<NativeMethods.MSLLHOOKSTRUCT>(lParam);
                 if (StartDrag(hookStruct.pt))
                 {
-                    return new IntPtr(1); // 入力を消費
+                    return new IntPtr(1); // Swallow the click so the app doesn't receive it.
                 }
             }
         }
@@ -91,41 +85,32 @@ public class MouseHook : IDisposable
     
     private bool StartDrag(NativeMethods.POINT pt)
     {
-        // マウス位置のウィンドウを取得
         IntPtr hwnd = NativeMethods.WindowFromPoint(pt);
         if (hwnd == IntPtr.Zero) return false;
         
-        // トップレベルウィンドウを取得
         hwnd = _windowManager.GetTopLevelWindow(hwnd);
         
-        // 除外ウィンドウか確認
         if (_windowManager.IsExcluded(hwnd)) return false;
 
-        // ゴーストモードのウィンドウのみ処理
+        // Only windows in Ghost Mode, so Ctrl+click keeps working in other windows.
         var info = _windowManager.GetInfo(hwnd);
         if (info == null || !info.IsGhostMode) return false;
 
-        // 最大化ウィンドウは無視
         if (NativeMethods.IsZoomed(hwnd)) return false;
         
-        // ウィンドウ矩形を取得
         if (!NativeMethods.GetWindowRect(hwnd, out var rect)) return false;
         
-        // ドラッグモードを決定
         DragMode mode = GetDragMode(pt, rect);
         if (mode == DragMode.None) return false;
         
-        // OS標準のドラッグを開始
         NativeMethods.ReleaseCapture();
         
         if (mode == DragMode.Move)
         {
-            // 移動: SC_MOVE を送信
             NativeMethods.SendMessageW(hwnd, NativeMethods.WM_SYSCOMMAND, (IntPtr)SC_MOVE, IntPtr.Zero);
         }
         else
         {
-            // リサイズ: SC_SIZE + 方向 を送信
             int direction = mode switch
             {
                 DragMode.ResizeN => WMSZ_TOP,
@@ -144,7 +129,6 @@ public class MouseHook : IDisposable
         return true;
     }
     
-    /// <summary>マウス位置からドラッグモードを決定</summary>
     private static DragMode GetDragMode(NativeMethods.POINT pt, NativeMethods.RECT rect)
     {
         bool nearLeft = pt.X < rect.Left + EDGE_SIZE;
@@ -152,19 +136,17 @@ public class MouseHook : IDisposable
         bool nearTop = pt.Y < rect.Top + EDGE_SIZE;
         bool nearBottom = pt.Y > rect.Bottom - EDGE_SIZE;
         
-        // 角
+        // Corners first, then edges; anywhere else moves the window.
         if (nearLeft && nearTop) return DragMode.ResizeNW;
         if (nearRight && nearTop) return DragMode.ResizeNE;
         if (nearLeft && nearBottom) return DragMode.ResizeSW;
         if (nearRight && nearBottom) return DragMode.ResizeSE;
         
-        // 辺
         if (nearLeft) return DragMode.ResizeW;
         if (nearRight) return DragMode.ResizeE;
         if (nearTop) return DragMode.ResizeN;
         if (nearBottom) return DragMode.ResizeS;
         
-        // 中央（移動）
         return DragMode.Move;
     }
     
